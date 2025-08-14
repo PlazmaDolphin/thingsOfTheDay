@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Server-Timed Image Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mr+De+Haviland&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background-color: #202020;
+      margin: 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #303030;
+      padding: 0.5em 0.5em;
+      border-bottom: 2px solid #404040;
+    }
+
+    header img {
+      height: 40px;
+      width: auto;
+    }
+
+    header a {
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.7em;
+      display: flex;
+      align-items: center;
+      height: 40px;
+    }
+
+    header a:hover {
+      text-decoration: underline;
+    }
+
+    header h1 {
+      color: white;
+      margin-top: 0em;
+      font-size: 3em;
+      flex: 2;
+      text-align: center;
+      height: 30px;
+    }
+    h1 { color: #ffffff; }
+
+    .image-container {
+      width: 90vw;
+      height: 70vh;
+      margin: auto;
+      background-color: #404040;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .image-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .text-container {
+      width: 90vw;
+      height: 40vh;
+      margin: 1em auto;
+      background-color: #404040;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5em;
+      color: white;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .text-container span {
+      display: inline-block;
+      font-size: 5vw; /* will be resized by script */
+      line-height: 1.2;
+    }
+    .quote-text {
+      font-family: "Mr De Haviland", "Blackadder ITC", "Ink Free", Palatino, Georgia, serif;
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    #timer {
+      margin-top: 1em;
+      font-size: 1.2em;
+      color: #b0b0b0;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- New Header -->
+  <header>
+    <a href="/"><img src="https://files.catbox.moe/w6rqgb.png" alt="plazma.dev"></a> <!-- Replace with your image path -->
+    <h1>Today's Things</h1>
+    <a href="/submit">Submit</a>
+  </header>
+
+  <h1>Image of the Day</h1>
+  <div class="image-container">
+    <img id="random-image" src="" alt="Random image">
+  </div>
+  <div id="timer">Loading...</div>
+  <h1>Quote of the Day</h1>
+  <div class="text-container">
+    <p class="quote-text">
+    <span id="scaling-text">I hate all of you! Say yes, corporal!</span>
+    </p>
+  </div>
+
+  <script>
+    const image = document.getElementById("random-image");
+    const timer = document.getElementById("timer");
+
+    let timeRemaining = 0;
+
+    async function updateImageFromServer() {
+      try {
+        var response = await fetch('/current');
+        var data = await response.json();
+
+        while (!(await validateImage(data.url))) {
+          console.error("Image validation failed, retrying...");
+          await new Promise(resolve => setTimeout(resolve, 200)); // Wait before retrying
+          response = await fetch('/current');
+          data = await response.json();
+        }
+
+        image.src = data.url;
+        timeRemaining = data.seconds_remaining;
+
+        timer.textContent = `Image #${data.index + 1} — next in ${timeRemaining} seconds`;
+      } catch (err) {
+        console.error("Failed to fetch current image:", err);
+        timer.textContent = "Failed to load.";
+      }
+    }
+
+    async function startTimerLoop() {
+      await updateImageFromServer();
+      setInterval(() => {
+        timeRemaining--;
+        if (timeRemaining <= 0) {
+          updateImageFromServer();
+        } else {
+          timer.textContent = timer.textContent.replace(/\d+ seconds/, `${timeRemaining} seconds`);
+        }
+      }, 1000);
+    }
+
+    function validateImage(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+
+        img.onload = () => {
+          resolve(true);
+        };
+
+        img.onerror = () => {
+          console.log("❌ Image failed to load:", url);
+          reportToServer(url, false);
+          resolve(false);
+        };
+
+        img.src = url;
+      });
+    }
+
+    function reportToServer(url, isValid) {
+      fetch("/report-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          url: url,
+          valid: isValid
+        })
+      });
+    }
+    function fitTextToContainer(container, textElement) {
+      let fontSize = 300; // start large
+      textElement.style.fontSize = fontSize + "px";
+      while (
+        (textElement.scrollHeight > container.clientHeight ||
+         textElement.scrollWidth > container.clientWidth) &&
+        fontSize > 5
+      ) {
+        fontSize -= 1;
+        textElement.style.fontSize = fontSize + "px";
+      }
+    }
+
+    window.addEventListener("load", () => {
+      const container = document.querySelector(".text-container");
+      const text = document.getElementById("scaling-text");
+      fitTextToContainer(container, text);
+      window.addEventListener("resize", () => fitTextToContainer(container, text));
+    });
+    startTimerLoop();
+  </script>
+</body>
+
+</html>

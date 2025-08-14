@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Submit Image</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #202020;
+      color: white;
+      margin: 0;
+      text-align: center;
+      padding: 2em;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #303030;
+      padding: 0.5em 0.5em;
+      border-bottom: 2px solid #404040;
+    }
+    header img {
+      height: 40px;
+      width: auto;
+    }
+    header a {
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1.7em;
+      display: flex;
+      align-items: center;
+      height: 40px;
+    }
+    header h1 {
+      color: white;
+      margin-top: 0em;
+      font-size: 3em;
+      flex: 2;
+      text-align: center;
+      height: 30px;
+    }
+    .image-container {
+      width: 90vw;
+      height: 50vh;
+      margin: auto;
+      background-color: #404040;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .image-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    #input-container {
+      margin-top: 1em;
+    }
+
+    input[type="text"] {
+      width: 70%;
+      padding: 0.5em;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      font-size: 1em;
+    }
+
+    button {
+      margin-top: 1em;
+      padding: 0.7em 2em;
+      font-size: 1.2em;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: not-allowed;
+      background-color: #555;
+      color: #ccc;
+      transition: background 0.2s;
+    }
+
+    button.enabled {
+      cursor: pointer;
+      background-color: #4cafef;
+      color: white;
+    }
+
+    button.enabled:hover {
+      background-color: #368ad2;
+    }
+  </style>
+</head>
+<body>
+  <header>
+        <a href="/"><img src="https://files.catbox.moe/w6rqgb.png" alt="plazma.dev"></a>
+        <h1>Submit for Tomorrow</h1>
+        <a href="/submit">Submit</a>
+  </header>
+  <!-- Image preview -->
+  <div class="image-container">
+    <img id="preview" src="" alt="Preview will appear here">
+  </div>
+
+  <!-- Input box -->
+  <div id="input-container">
+    <input type="text" id="image-url" placeholder="Paste an image URL here">
+    <button id="submit-btn" disabled>Submit</button>
+  </div>
+
+  <script>
+    const input = document.getElementById("image-url");
+    const preview = document.getElementById("preview");
+    const submitBtn = document.getElementById("submit-btn");
+
+    function validateImage(url) {
+    return new Promise((resolve) => {
+        if (!/^https?:\/\//i.test(url)) {
+            resolve(false);
+            return;
+        }
+        const img = new Image();
+
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+
+        // Directly set to external host only
+        img.src = url;
+    });
+    }
+    async function submitURL(url){
+      try {
+        const response = await fetch("/submit/img", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url })
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        console.error("Failed to submit image:", err);
+        return "Network Error.\nSee console."
+      }
+    }
+    input.addEventListener("input", async () => {
+      const url = input.value.trim();
+
+      // Clear preview + disable submit if empty
+      if (!url) {
+        preview.src = "";
+        submitBtn.disabled = true;
+        submitBtn.classList.remove("enabled");
+        return;
+      }
+
+      // Validate image URL
+      const isValid = await validateImage(url);
+      if (isValid) {
+        preview.src = url;
+        submitBtn.disabled = false;
+        submitBtn.classList.add("enabled");
+      } else {
+        preview.src = "";
+        submitBtn.disabled = true;
+        submitBtn.classList.remove("enabled");
+      }
+    });
+
+    submitBtn.addEventListener("click", async () => {
+      if (submitBtn.disabled) return;
+      const url = input.value.trim();
+      status = await submitURL(url);
+      alert(status);
+      //Reset text box
+      input.value = "";
+      preview.src = "";
+      submitBtn.disabled = true;
+      submitBtn.classList.remove("enabled");
+    });
+  </script>
+</body>
+</html>

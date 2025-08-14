@@ -1,0 +1,15 @@
+FOR TOMORROW:
+    - Make user submissions
+        X Make new HTML page (/submit)
+        X Homepage and /submit should have clickable links to each other
+        X Make text box to paste link
+        X Show image preview
+        X Enable submit button upon link validation (client)
+        X Mix in submitted link in the submissions.json
+        X Alert client whether image submission worked, then clear text field
+        X Prevent double submissions
+        - Migrate volatile pics to Catbox
+    - Do it live!
+        - Make webpage connectable via direct IP (mess with router)
+        - Coerce people into testing it
+        - Let testers try to break the site
