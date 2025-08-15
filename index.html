@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Server-Timed Image Viewer</title>
+  <title>Server-Timed Viewer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Mr+De+Haviland&display=swap" rel="stylesheet">
@@ -70,6 +70,7 @@
       object-fit: contain;
       display: block;
     }
+
     .text-container {
       width: 90vw;
       height: 40vh;
@@ -87,9 +88,10 @@
 
     .text-container span {
       display: inline-block;
-      font-size: 5vw; /* will be resized by script */
+      font-size: 5vw;
       line-height: 1.2;
     }
+
     .quote-text {
       font-family: "Mr De Haviland", "Blackadder ITC", "Ink Free", Palatino, Georgia, serif;
       font-weight: 400;
@@ -105,61 +107,69 @@
 </head>
 
 <body>
-  <!-- New Header -->
   <header>
-    <a href="/"><img src="https://files.catbox.moe/w6rqgb.png" alt="plazma.dev"></a> <!-- Replace with your image path -->
+    <a href="/"><img src="https://files.catbox.moe/w6rqgb.png" alt="plazma.dev"></a>
     <h1>Today's Things</h1>
     <a href="/submit">Submit</a>
   </header>
+  <div id="timer">Loading...</div>
 
   <h1>Image of the Day</h1>
   <div class="image-container">
     <img id="random-image" src="" alt="Random image">
   </div>
-  <div id="timer">Loading...</div>
+
   <h1>Quote of the Day</h1>
   <div class="text-container">
     <p class="quote-text">
-    <span id="scaling-text">I hate all of you! Say yes, corporal!</span>
+      <span id="scaling-text">Loading...</span>
     </p>
   </div>
 
   <script>
-    const image = document.getElementById("random-image");
-    const timer = document.getElementById("timer");
+    const imageEl = document.getElementById("random-image");
+    const quoteEl = document.getElementById("scaling-text");
+    const timerEl = document.getElementById("timer");
+    const quoteContainer = document.querySelector(".text-container");
 
     let timeRemaining = 0;
 
-    async function updateImageFromServer() {
+    async function updateFromServer() {
       try {
-        var response = await fetch('/current');
-        var data = await response.json();
+        const response = await fetch('/current');
+        const data = await response.json();
 
-        while (!(await validateImage(data.url))) {
+        // Image update
+        while (!(await validateImage(data.img))) {
           console.error("Image validation failed, retrying...");
-          await new Promise(resolve => setTimeout(resolve, 200)); // Wait before retrying
-          response = await fetch('/current');
-          data = await response.json();
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const retryResponse = await fetch('/current');
+          data = await retryResponse.json();
+        }
+        imageEl.src = data.img;
+
+        // Quote update
+        if (data.quote) {
+          quoteEl.textContent = data.quote;
+          fitTextToContainer(document.querySelector(".text-container"), quoteEl);
         }
 
-        image.src = data.url;
         timeRemaining = data.seconds_remaining;
-
-        timer.textContent = `Image #${data.index + 1} — next in ${timeRemaining} seconds`;
+        timer.textContent = `Next update in ${timeRemaining} seconds`;
       } catch (err) {
-        console.error("Failed to fetch current image:", err);
+        console.error("Failed to fetch current data:", err);
         timer.textContent = "Failed to load.";
       }
     }
 
-    async function startTimerLoop() {
-      await updateImageFromServer();
+    function startTimerLoop() {
+      updateFromServer();
       setInterval(() => {
         timeRemaining--;
         if (timeRemaining <= 0) {
-          updateImageFromServer();
+          updateFromServer();
         } else {
-          timer.textContent = timer.textContent.replace(/\d+ seconds/, `${timeRemaining} seconds`);
+          timerEl.textContent = `Next update in ${timeRemaining} seconds`;
         }
       }, 1000);
     }
@@ -167,52 +177,41 @@
     function validateImage(url) {
       return new Promise((resolve) => {
         const img = new Image();
-
-        img.onload = () => {
-          resolve(true);
-        };
-
+        img.onload = () => resolve(true);
         img.onerror = () => {
-          console.log("❌ Image failed to load:", url);
           reportToServer(url, false);
           resolve(false);
         };
-
         img.src = url;
       });
     }
 
     function reportToServer(url, isValid) {
-      fetch("/report-image", {
+      fetch("/report/img", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          url: url,
-          valid: isValid
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, valid: isValid })
       });
     }
+
     function fitTextToContainer(container, textElement) {
-      let fontSize = 300; // start large
+      let fontSize = 300;
       textElement.style.fontSize = fontSize + "px";
       while (
         (textElement.scrollHeight > container.clientHeight ||
          textElement.scrollWidth > container.clientWidth) &&
         fontSize > 5
       ) {
-        fontSize -= 1;
+        fontSize--;
         textElement.style.fontSize = fontSize + "px";
       }
     }
 
     window.addEventListener("load", () => {
-      const container = document.querySelector(".text-container");
-      const text = document.getElementById("scaling-text");
-      fitTextToContainer(container, text);
-      window.addEventListener("resize", () => fitTextToContainer(container, text));
+      fitTextToContainer(quoteContainer, quoteEl);
+      window.addEventListener("resize", () => fitTextToContainer(quoteContainer, quoteEl));
     });
+
     startTimerLoop();
   </script>
 </body>

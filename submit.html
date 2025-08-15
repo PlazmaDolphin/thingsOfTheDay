@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Submit Image</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mr+De+Haviland&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: sans-serif;
@@ -11,7 +14,10 @@
       margin: 0;
       text-align: center;
       padding: 2em;
+      background-color: #202020;
+      margin: 0;
     }
+
     header {
       display: flex;
       align-items: center;
@@ -20,10 +26,12 @@
       padding: 0.5em 0.5em;
       border-bottom: 2px solid #404040;
     }
+
     header img {
       height: 40px;
       width: auto;
     }
+
     header a {
       color: #ffffff;
       text-decoration: none;
@@ -33,6 +41,11 @@
       align-items: center;
       height: 40px;
     }
+
+    header a:hover {
+      text-decoration: underline;
+    }
+
     header h1 {
       color: white;
       margin-top: 0em;
@@ -41,9 +54,11 @@
       text-align: center;
       height: 30px;
     }
+    h1 { color: #ffffff; }
+
     .image-container {
       width: 90vw;
-      height: 50vh;
+      height: 70vh;
       margin: auto;
       background-color: #404040;
       border-radius: 12px;
@@ -58,8 +73,42 @@
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+      display: block;
     }
 
+    .text-container {
+      width: 90vw;
+      height: 40vh;
+      margin: 1em auto;
+      background-color: #404040;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5em;
+      color: white;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .text-container span {
+      display: inline-block;
+      font-size: 5vw;
+      line-height: 1.2;
+    }
+
+    .quote-text {
+      font-family: "Mr De Haviland", "Blackadder ITC", "Ink Free", Palatino, Georgia, serif;
+      font-weight: 400;
+      font-size: 3000;
+      font-style: normal;
+    }
+
+    #timer {
+      margin-top: 1em;
+      font-size: 1.2em;
+      color: #b0b0b0;
+    }
     #input-container {
       margin-top: 1em;
     }
@@ -96,6 +145,7 @@
       background-color: #368ad2;
     }
   </style>
+  </style>
 </head>
 <body>
   <header>
@@ -105,19 +155,33 @@
   </header>
   <!-- Image preview -->
   <div class="image-container">
-    <img id="preview" src="" alt="Preview will appear here">
+    <img id="imgPreview" src="" alt="Preview will appear here">
   </div>
 
   <!-- Input box -->
   <div id="input-container">
     <input type="text" id="image-url" placeholder="Paste an image URL here">
-    <button id="submit-btn" disabled>Submit</button>
+    <button id="imgBtn" disabled>Submit</button>
+  </div>
+
+  <div class="text-container" id="textPreviewContainer">
+    <p class="quote-text">
+      <span id="textPreview">Insert Fancy Quote</span>
+    </p>
+  </div>
+  <div>
+    <input type="text" id="plaintext" placeholder="Write a great quote here">
+    <button id="textBtn" disabled>Submit</button>
   </div>
 
   <script>
-    const input = document.getElementById("image-url");
-    const preview = document.getElementById("preview");
-    const submitBtn = document.getElementById("submit-btn");
+    const imgInput = document.getElementById("image-url");
+    const imgPreview = document.getElementById("imgPreview");
+    const imgBtn = document.getElementById("imgBtn");
+    const textPreview = document.getElementById("textPreview");
+    const textInput = document.getElementById("plaintext");
+    const textBtn = document.getElementById("textBtn");
+    const textPreviewContainer = document.getElementById("textPreviewContainer");
 
     function validateImage(url) {
     return new Promise((resolve) => {
@@ -134,57 +198,109 @@
         img.src = url;
     });
     }
-    async function submitURL(url){
+        async function submitData(category, value) {
       try {
-        const response = await fetch("/submit/img", {
+        const response = await fetch(`/submit/${encodeURIComponent(category)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: url })
+          body: JSON.stringify({ value: value })
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        return data;
+        return await response.json();
       } catch (err) {
-        console.error("Failed to submit image:", err);
-        return "Network Error.\nSee console."
+        console.error(`Failed to submit to ${category}:`, err);
+        return "Network Error.\nSee console.";
       }
     }
-    input.addEventListener("input", async () => {
-      const url = input.value.trim();
 
-      // Clear preview + disable submit if empty
-      if (!url) {
-        preview.src = "";
+    function handleInputChange(inputEl, previewEl, submitBtn, type, validator = null, container=null) {
+      return async function() {
+        const value = inputEl.value.trim();
+        if (!value) {
+          if (previewEl) {
+            if (type === "text") {
+              previewEl.textContent = ""; // Clear text preview
+            } else if (type === "img") {
+              previewEl.src = ""; // Clear image preview
+            }
+          }
+          submitBtn.disabled = true;
+          submitBtn.classList.remove("enabled");
+          return;
+        }
+
+        let isValid = true;
+        if (validator) isValid = await validator(value);
+
+        if (isValid) {
+          if (previewEl){
+            if (type==="text") { 
+              previewEl.textContent = value; // For text preview
+
+              if(container) {
+                fitTextToContainer(container, previewEl);
+              }
+            } else if (type==="img") {
+              previewEl.src = value;
+            }
+          }
+          submitBtn.disabled = false;
+          submitBtn.classList.add("enabled");
+        } else {
+          if (previewEl) {
+            if (type === "text") {
+              previewEl.textContent = ""; // Clear text preview
+            } else if (type === "img") {
+              previewEl.src = ""; // Clear image preview
+            }
+          }
+          submitBtn.disabled = true;
+          submitBtn.classList.remove("enabled");
+        }
+      };
+    }
+
+    function handleSubmitClick(category, inputEl, previewEl, submitBtn) {
+      return async function() {
+        if (submitBtn.disabled) return;
+
+        const value = inputEl.value.trim();
+        const status = await submitData(category, value);
+        alert(status);
+
+        // Reset
+        inputEl.value = "";
+        if (previewEl) {
+          if (category === "quote") {
+            previewEl.textContent = "";
+          } else if (category === "img") {
+            previewEl.src = "";
+          }
+        }
         submitBtn.disabled = true;
         submitBtn.classList.remove("enabled");
-        return;
+      };
+    }
+    function fitTextToContainer(container, textElement) {
+      let fontSize = 1000;
+      textElement.style.fontSize = fontSize + "px";
+      while (
+        (textElement.scrollHeight > container.clientHeight ||
+         textElement.scrollWidth > container.clientWidth) &&
+        fontSize > 5
+      ) {
+        fontSize--;
+        textElement.style.fontSize = fontSize + "px";
       }
+    }
 
-      // Validate image URL
-      const isValid = await validateImage(url);
-      if (isValid) {
-        preview.src = url;
-        submitBtn.disabled = false;
-        submitBtn.classList.add("enabled");
-      } else {
-        preview.src = "";
-        submitBtn.disabled = true;
-        submitBtn.classList.remove("enabled");
-      }
-    });
-
-    submitBtn.addEventListener("click", async () => {
-      if (submitBtn.disabled) return;
-      const url = input.value.trim();
-      status = await submitURL(url);
-      alert(status);
-      //Reset text box
-      input.value = "";
-      preview.src = "";
-      submitBtn.disabled = true;
-      submitBtn.classList.remove("enabled");
-    });
+    // Example: attaching for "img" submission
+    imgInput.addEventListener("input", handleInputChange(imgInput, imgPreview, imgBtn, "img", validateImage));
+    imgBtn.addEventListener("click", handleSubmitClick("img", imgInput, imgPreview, imgBtn));
+    // Example: attaching for "quote" submission (no preview or validator)
+    textInput.addEventListener("input", handleInputChange(textInput, textPreview, textBtn, "text", null, textPreviewContainer));
+    textBtn.addEventListener("click", handleSubmitClick("quote", textInput, textPreview, textBtn));
   </script>
 </body>
 </html>

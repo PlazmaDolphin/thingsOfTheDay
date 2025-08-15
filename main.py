@@ -9,18 +9,15 @@ from flask import Flask, send_from_directory, jsonify, request, render_template_
 app = Flask(__name__)
 
 # Load image list from JSON file
-def getSubmissions():
+def getSelections():
     try:
-        with open("submissions.json", "r", encoding="utf-8") as f:
+        with open("selections.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        return []
+        return {"img": [], "quote": []}
 
 INTERVAL = 30  # seconds between image switches
 LAST_SWITCH = int(time.time())
-index = 0
-
-from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
@@ -38,18 +35,6 @@ def handle_error(e):
 
     # For other errors, return the default
     return str(e), code
-@app.errorhandler(404)
-def not_found(_):
-    return render_template_string('''
-        <h1>404 - Not Found</h1>
-        <img src="https://http.cat/404" alt="404 Not Found">
-    '''), 404
-@app.errorhandler(405)
-def method_not_allowed(_):
-    return render_template_string('''
-        <h1>405 - Method Not Allowed</h1>
-        <img src="https://httpcats.com/405.jpg" alt="Method Not Allowed">
-    '''), 405
 #get the favicon
 @app.route("/favicon.ico")
 def favicon():
@@ -64,63 +49,94 @@ def serve_submit():
 
 @app.route("/current")
 def current_image():
+    selections = getSelections()
     secs = updateTimer()
     return jsonify({
-        "index": index,
-        "url": getSubmissions()[index],
+        "img": selections["img"],
+        "quote": selections["quote"],
         "seconds_remaining": secs
     })
-@app.route("/submit/img", methods=["POST"])
-def submitImg():
+@app.route("/submit/<category>", methods=["POST"])
+def submit_generic(category):
     data = request.json
-    url = data.get("url")
-    with open("submissions.json", "r", encoding="utf-8") as f:
-        images = json.load(f)
-    if url in images:
-        return jsonify("Not submitted: Link already in submission list")
-    #TODO: check whether link is volatile and move to Catbox
+    value = data.get("value") or data.get("url")  # support both field names
+    if not value:
+        return jsonify({"error": "No value provided"}), 200
+    try:
+        with open("submissions.json", "r", encoding="utf-8") as f:
+            submissions = json.load(f)
+    except FileNotFoundError:
+        submissions = {}
+    # Ensure category exists in the JSON
+    if category not in submissions or not isinstance(submissions[category], list):
+        return jsonify({"error": f"Category '{category}' does not exist"}), 200
+    # Prevent duplicates
+    if value in submissions[category]:
+        return jsonify(f"Not submitted: Already in '{category}' list"), 200
+    # Append new value
+    submissions[category].append(value)
     with open("submissions.json", "w", encoding="utf-8") as f:
-        images.append(url)
-        f.write(json.dumps(images))
-        return jsonify(f"Link submitted successfully!\n{len(images)} submissions so far.")
+        json.dump(submissions, f, ensure_ascii=False, indent=2)
+    return jsonify(f"Submitted successfully to '{category}'!\n{len(submissions[category])} items so far.")
 
 def updateTimer():
     now = int(time.time())
-    seconds_remaining = INTERVAL + LAST_SWITCH - now
-    if seconds_remaining <= 0:
-        pickNewImg()
+    seconds_remaining = INTERVAL + LAST_SWITCH - now +1 
+    if seconds_remaining <= 1:
+        selectAll()
     return seconds_remaining
 
-@app.route("/report-image", methods=["POST"])
-def report_image():
+@app.route("/report/<category>", methods=["POST"])
+def report_image(category):
     data = request.json
     url = data.get("url")
     valid = data.get("valid")
-    if not valid:
-        removeBroken(url)
+    if not valid: #TODO: Verify on server that broken stuff is actually broken
+        removeBroken(category, url)
     return jsonify({"status": "received"})
 
-def removeBroken(url):
+def removeBroken(category, url):
     with open("submissions.json", "r", encoding="utf-8") as f:
-        images = json.load(f)
+        images = json.load(f)[category]
     if url in images:
         images.remove(url)
         with open("submissions.json", "w", encoding="utf-8") as f:
             json.dump(images, f)
         print(f"Removed broken image: {url}")
-    pickNewImg()
+    reroll(category, url)
 
-def pickNewImg():
-    global index, LAST_SWITCH
+#TODO: Overhaul this to building a selections.json from submissions.json
+#      and seperate function replacing individual categories if broken
+def selectAll():
+    global LAST_SWITCH
     LAST_SWITCH = int(time.time())
-    length = len(getSubmissions())
-    if length <= 1:
-        index = 0
-        return
-    index += random.randint(1, length-1)
-    index %= length
-    #print(f"Switching to image {index}")
+    selections = getSelections()
+    with open("submissions.json", "r", encoding="utf-8") as f:
+        submissions = json.load(f)
+        for category in submissions:
+            #Select a random item from each category, but not the same one as last time
+            new = None
+            while (new is None or new == selections.get(category)) and len(submissions[category]) > 1:
+                new = random.choice(submissions[category])
+            selections[category] = new
+    with open("selections.json", "w", encoding="utf-8") as f:
+        json.dump(selections, f, ensure_ascii=False, indent=2)
 
+def reroll(category, invalid):
+    selections = dict()
+    submissions = dict()
+    with open("selections.json", "r", encoding="utf-8") as f:
+        selections = json.load(f)
+    with open("submissions.json", "r", encoding="utf-8") as f:
+        submissions = json.load(f)
+        #delete invalid item, then pick a new one
+        submissions[category].remove(invalid)
+        selections[category] = random.choice(submissions[category])
+    #Save new lists
+    with open("selections.json", "w", encoding="utf-8") as f:
+        json.dump(selections, f, ensure_ascii=False, indent=2)
+    with open("submissions.json", "w", encoding="utf-8") as f:
+        json.dump(submissions, f, ensure_ascii=False, indent=2)
 
 def tickThread():
     while True:
@@ -128,7 +144,7 @@ def tickThread():
         updateTimer()
 stop_flag = threading.Event()
 if __name__ == "__main__":
-    pickNewImg()  # Initialize with a random image
+    selectAll()  # Initialize with a random image
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true": #pylint: disable=E1101
         threading.Thread(target=tickThread, daemon=True).start()
     else: print("GOTCHA!")
