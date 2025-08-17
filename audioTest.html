@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>Audio Test Page</h1>
+        <p id="audioClickMeText">Click anywhere to play today's BGM</p>
+        <audio id="OST" loop controls src="https://eta.vgmtreasurechest.com/soundtracks/metroid-super-metroid/itjrfgbb/05.%20Brinstar%20Overgrown%20with%20Vegetation%20Area.mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <script>
+            const audio = document.getElementById("OST");
+            const audioClickMeText = document.getElementById("audioClickMeText");
+            //Flash audioClickMeText every second until clicked
+            let visible = true;
+            const intervalId = setInterval(() => {
+                if (visible) {
+                    audioClickMeText.style.visibility = "hidden";
+                } else {
+                    audioClickMeText.style.visibility = "visible";
+                }
+                visible = !visible;
+            }, 200);
+            //set volume to 50% and play on first click anywhere
+            document.addEventListener("click", () => {
+                audio.volume = 0.5;
+                audio.play();
+                clearInterval(intervalId);
+                audioClickMeText.style.visibility = "visible";
+                audioClickMeText.textContent = " Now Playing: Brinstar Overgrown with Vegetation Area";
+            }, { once: true });
+        </script>
+    </body>
+</html>

@@ -126,27 +126,34 @@
     </p>
   </div>
 
+  <h1>Cat of the Day</h1>
+  <div class="image-container">
+    <img id="cat-image" src="" alt="Cat image">
+  </div>
+
   <script>
     const imageEl = document.getElementById("random-image");
     const quoteEl = document.getElementById("scaling-text");
     const timerEl = document.getElementById("timer");
     const quoteContainer = document.querySelector(".text-container");
+    const catImageEl = document.getElementById("cat-image");
 
     let timeRemaining = 0;
 
     async function updateFromServer() {
       try {
         const response = await fetch('/current');
-        const data = await response.json();
+        let data = await response.json();
 
         // Image update
-        while (!(await validateImage(data.img))) {
+        while (!(await validateImage(data.img)) || !(await validateImage(data.cat))) {
           console.error("Image validation failed, retrying...");
           await new Promise(resolve => setTimeout(resolve, 200));
           const retryResponse = await fetch('/current');
           data = await retryResponse.json();
         }
         imageEl.src = data.img;
+        catImageEl.src = data.cat;
 
         // Quote update
         if (data.quote) {
@@ -186,7 +193,7 @@
       });
     }
 
-    function reportToServer(url, isValid) {
+    function reportToServer(url, isValid) { //TODO: unhardcode from /img
       fetch("/report/img", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

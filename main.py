@@ -46,6 +46,9 @@ def serve_index():
 @app.route("/submit")
 def serve_submit():
     return send_from_directory(".", "submit.html")
+@app.route("/audioTest")
+def serveAudioTest():
+    return send_from_directory(".", "audioTest.html")
 
 @app.route("/current")
 def current_image():
@@ -54,6 +57,7 @@ def current_image():
     return jsonify({
         "img": selections["img"],
         "quote": selections["quote"],
+        "cat": selections["cat"],
         "seconds_remaining": secs
     })
 @app.route("/submit/<category>", methods=["POST"])

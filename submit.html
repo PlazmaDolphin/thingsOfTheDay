@@ -160,6 +160,11 @@
 
   <!-- Input box -->
   <div id="input-container">
+    <!-- Dropdown Menu TODO: MAKE IT BIGGER -->
+    <select id="imgCategory">
+      <option value="img">Any Image</option>
+      <option value="cat">Cat</option>
+    </select> 
     <input type="text" id="image-url" placeholder="Paste an image URL here">
     <button id="imgBtn" disabled>Submit</button>
   </div>
@@ -178,6 +183,7 @@
     const imgInput = document.getElementById("image-url");
     const imgPreview = document.getElementById("imgPreview");
     const imgBtn = document.getElementById("imgBtn");
+    const imgCategory = document.getElementById("imgCategory");
     const textPreview = document.getElementById("textPreview");
     const textInput = document.getElementById("plaintext");
     const textBtn = document.getElementById("textBtn");
@@ -198,7 +204,7 @@
         img.src = url;
     });
     }
-        async function submitData(category, value) {
+    async function submitData(category, value) {
       try {
         const response = await fetch(`/submit/${encodeURIComponent(category)}`, {
           method: "POST",
@@ -263,18 +269,29 @@
 
     function handleSubmitClick(category, inputEl, previewEl, submitBtn) {
       return async function() {
+        var categ;
+        // if category is string, use it directly
+        if (typeof category === "string") {
+          categ = category;
+        } else if (category instanceof HTMLSelectElement) {
+          categ = category.value; // Use dropdown value
+        }
+        else {
+          console.error("Invalid category type:", category);
+          return;
+        }
         if (submitBtn.disabled) return;
 
         const value = inputEl.value.trim();
-        const status = await submitData(category, value);
+        const status = await submitData(categ, value);
         alert(status);
 
         // Reset
         inputEl.value = "";
         if (previewEl) {
-          if (category === "quote") {
+          if (categ === "quote") {
             previewEl.textContent = "";
-          } else if (category === "img") {
+          } else if (categ === "img" || categ === "cat") {
             previewEl.src = "";
           }
         }
@@ -297,7 +314,7 @@
 
     // Example: attaching for "img" submission
     imgInput.addEventListener("input", handleInputChange(imgInput, imgPreview, imgBtn, "img", validateImage));
-    imgBtn.addEventListener("click", handleSubmitClick("img", imgInput, imgPreview, imgBtn));
+    imgBtn.addEventListener("click", handleSubmitClick(imgCategory, imgInput, imgPreview, imgBtn));
     // Example: attaching for "quote" submission (no preview or validator)
     textInput.addEventListener("input", handleInputChange(textInput, textPreview, textBtn, "text", null, textPreviewContainer));
     textBtn.addEventListener("click", handleSubmitClick("quote", textInput, textPreview, textBtn));
