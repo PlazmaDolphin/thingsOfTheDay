@@ -1,8 +1,8 @@
-:80 {
+:8080 {
 	# === Match known probe paths ===
 	@probes {
 		path_regexp probes (?i)(wp-login\.php|xmlrpc\.php|\.env|phpunit|eval-stdin\.php|setup\.php|config\.php|mysql|\.git|\.svn|backup|\.bak|test|cgi-bin|\.DS_Store|admin|login|\.idea|\.vscode|\.htaccess|\.htpasswd|api|vendor|node_modules|composer\.json|docker-compose\.yml|wp-admin|joomla|drupal|wordpress|magento|pma|phpmyadmin)
 	}
 	respond @probes 204
-	reverse_proxy :8008
+	reverse_proxy :7007
 }

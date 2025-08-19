@@ -156,5 +156,5 @@ if True: #__name__ == "__main__":
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true": #pylint: disable=E1101
         threading.Thread(target=tickThread, daemon=True).start()
     else: print("GOTCHA!")
-    app.run(host="0.0.0.0", port=8008, debug=True)
+    app.run(host="0.0.0.0", port=7007, debug=True)
     #async: every second, call update timer
