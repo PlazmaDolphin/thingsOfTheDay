@@ -5,6 +5,7 @@ import random
 import threading
 import os
 from flask import Flask, send_from_directory, jsonify, request, render_template_string
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
 
@@ -20,6 +21,7 @@ INTERVAL = 30  # seconds between image switches
 LAST_SWITCH = int(time.time())
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 @app.errorhandler(Exception)
 def handle_error(e):
@@ -101,11 +103,13 @@ def report_image(category):
 
 def removeBroken(category, url):
     with open("submissions.json", "r", encoding="utf-8") as f:
-        images = json.load(f)[category]
+        subs = json.load(f)
+        images = subs[category]
     if url in images:
         images.remove(url)
+        subs[category] = images
         with open("submissions.json", "w", encoding="utf-8") as f:
-            json.dump(images, f)
+            json.dump(subs, f, ensure_ascii=False, indent=2)
         print(f"Removed broken image: {url}")
     reroll(category, url)
 
@@ -147,7 +151,7 @@ def tickThread():
         time.sleep(1)
         updateTimer()
 stop_flag = threading.Event()
-if __name__ == "__main__":
+if True: #__name__ == "__main__":
     selectAll()  # Initialize with a random image
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true": #pylint: disable=E1101
         threading.Thread(target=tickThread, daemon=True).start()
